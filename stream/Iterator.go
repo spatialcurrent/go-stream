@@ -7,7 +7,8 @@
 
 package stream
 
+// Iterator is an interface implemented by StreamIterator and BlockIterator used for iterating through objects.
 type Iterator interface {
-  Next() ([]byte, error)
-  Close() error
+  Next() ([]byte, error) // returns the current object and advances forward.
+  Close() error // close the underlying Reader.
 }

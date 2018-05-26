@@ -25,6 +25,7 @@ type BlockIterator struct {
   BigEndian bool
 }
 
+// Next returns the bytes of the next object in the block, and an error if any.
 func (it *BlockIterator) Next() ([]byte, error) {
 
   header := make([]byte, 0, 8)
@@ -72,6 +73,7 @@ func (it *BlockIterator) Next() ([]byte, error) {
   return content, nil
 }
 
+// Skip advances the iterator forward by "n" objects.  Returns an error, if any.
 func (it *BlockIterator) Skip(n int) error {
 	for i := 0; i < n; i++ {
 		_, err := it.Next()
@@ -82,6 +84,7 @@ func (it *BlockIterator) Skip(n int) error {
 	return nil
 }
 
+// Close closes the iterator's underlying Reader.
 func (it *BlockIterator) Close() error {
 	return it.Reader.Close()
 }

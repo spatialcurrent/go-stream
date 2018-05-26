@@ -11,7 +11,6 @@ import (
 	"bufio"
 	"compress/gzip"
 	"fmt"
-	//"io"
 	"io/ioutil"
 	"os"
 )
@@ -22,14 +21,15 @@ import (
 	"github.com/pkg/errors"
 )
 
+// TempFileBlock is struct for reading & writing a compressed block of objects to a temporary file on disk.
 type TempFileBlock struct {
-  Algorithm string         `xml:"-" json:"-"`
-  BigEndian bool `xml:"-" json:"-"`
+	AbstractBlock
 	TempDir string `xml:"-" json:"-"`
 	TempDirExpanded string `xml:"-" json:"-"`
   TempFile string `xml:"-" json:"-"`
 }
 
+// Size returns the number of bytes in the block, by using os.FileInfo.Size(), and an error if any.
 func (tfb *TempFileBlock) Size() (int64, error) {
 	f, err := os.Open(tfb.TempFile)
 	if err != nil {
@@ -42,16 +42,17 @@ func (tfb *TempFileBlock) Size() (int64, error) {
 	return fi.Size(), nil
 }
 
+// Reader returns a Reader for reading the data in the block, and an error if any.
 func (tfb *TempFileBlock) Reader() (*Reader, error) {
-  switch tfb.Algorithm {
+  switch tfb.GetAlgorithm() {
   case "snappy":
-		f, err := os.Open(tfb.TempFile)
+		f, err := os.OpenFile(tfb.TempFile, os.O_RDONLY, 0600)
 		if err != nil {
 			return nil, errors.Wrap(err, "Error opening file block at \""+tfb.TempFile+"\" for reading")
 		}
 		return &Reader{Reader: snappy.NewReader(bufio.NewReader(f)), File: f}, nil
   case "gzip":
-		f, err := os.Open(tfb.TempFile)
+		f, err := os.OpenFile(tfb.TempFile, os.O_RDONLY, 0600)
 		if err != nil {
 			return nil, errors.Wrap(err, "Error opening file block at \""+tfb.TempFile+"\" for reading")
 		}
@@ -61,7 +62,7 @@ func (tfb *TempFileBlock) Reader() (*Reader, error) {
 		}
 		return &Reader{ReadCloser: gr, File: f}, nil
   case "none":
-		f, err := os.Open(tfb.TempFile)
+		f, err := os.OpenFile(tfb.TempFile, os.O_RDONLY, 0600)
 		if err != nil {
 			return nil, errors.Wrap(err, "Error opening file block at \""+tfb.TempFile+"\" for reading")
 		}
@@ -70,6 +71,7 @@ func (tfb *TempFileBlock) Reader() (*Reader, error) {
   return nil, errors.New("Unknown compression algorithm")
 }
 
+// Iterator returns a BlockIterator for iterating through the blocks data, and an error if any.
 func (tfb *TempFileBlock) Iterator() (*BlockIterator, error) {
   reader, err := tfb.Reader()
   if err != nil {
@@ -78,7 +80,7 @@ func (tfb *TempFileBlock) Iterator() (*BlockIterator, error) {
 
   it := &BlockIterator{
     Reader: reader,
-    BigEndian: tfb.BigEndian,
+    BigEndian: tfb.UseBigEndian(),
   }
 
   return it, nil
@@ -109,6 +111,8 @@ func (tfb *TempFileBlock) Get(position int) ([]byte, error) {
 	return b, nil
 }
 
+// Init initializes a TempFileBlock by writing "b" to a temp file in the TempDir directory.
+// The path to the temp file is saved to tfb.TempFile.
 func (tfb *TempFileBlock) Init(b []byte) error {
 
 	tempDirExpanded, err := homedir.Expand(tfb.TempDir)
@@ -151,14 +155,18 @@ func (tfb *TempFileBlock) Init(b []byte) error {
 	return nil
 }
 
+// Remove removes the temp file from disk.
 func (tfb *TempFileBlock) Remove() error {
 	return os.Remove(tfb.TempFile)
 }
 
+// NewTempFileBlock returns a new TempFileBlock.
 func NewTempFileBlock(algorithm string, bigEndian bool, tempDir string) *TempFileBlock {
   return &TempFileBlock{
-    Algorithm: algorithm,
-    BigEndian: bigEndian,
+		AbstractBlock: AbstractBlock{
+			Algorithm: algorithm,
+			BigEndian: bigEndian,
+		},
 		TempDir: tempDir,
   }
 }

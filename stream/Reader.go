@@ -16,12 +16,15 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Reader is a struct for easily closing underlying file points once a read is complete.
+// Reader should only be used in situations where an *os.File is only used by a single io.Rreader.
 type Reader struct {
   Reader io.Reader
   ReadCloser io.ReadCloser
   File *os.File
 }
 
+// Read reads the
 func (r *Reader ) Read(p []byte) (n int, err error) {
 
   if r.ReadCloser != nil {
@@ -35,6 +38,7 @@ func (r *Reader ) Read(p []byte) (n int, err error) {
   return 0, nil
 }
 
+// Close closes the ReadCloser, if any and the underlying os.File.
 func (r *Reader) Close() error {
 
   if r.ReadCloser != nil {

@@ -19,18 +19,21 @@ import (
 	"github.com/pkg/errors"
 )
 
+// MemoryBlock holds a block of objects in memory.
+// The objects may be compressed using the Algorithm.
 type MemoryBlock struct {
-  Algorithm string         `xml:"-" json:"-"`
-  BigEndian bool `xml:"-" json:"-"`
-  Bytes     []byte         `xml:"-" json:"-"`
+	AbstractBlock
+  Bytes     []byte         `xml:"-" json:"-"` // The compressed block of bytes
 }
 
+// Size returns the number of bytes as an int64.
 func (mb *MemoryBlock) Size() (int64, error) {
   return int64(len(mb.Bytes)), nil
 }
 
+// Reader returns a *Reader for reading the compressed bytes, and an error if any.
 func (mb *MemoryBlock) Reader() (*Reader, error) {
-  switch mb.Algorithm {
+  switch mb.GetAlgorithm() {
   case "snappy":
 		return &Reader{Reader: snappy.NewReader(bytes.NewReader(mb.Bytes))}, nil
   case "gzip":
@@ -45,6 +48,7 @@ func (mb *MemoryBlock) Reader() (*Reader, error) {
   return nil, errors.New("Unknown compression algorithm")
 }
 
+// Iterator returns a BlockIterator for iterating through the bytes, and an error if any.
 func (mb *MemoryBlock) Iterator() (*BlockIterator, error) {
   reader, err := mb.Reader()
   if err != nil {
@@ -53,12 +57,15 @@ func (mb *MemoryBlock) Iterator() (*BlockIterator, error) {
 
   it := &BlockIterator{
     Reader: reader,
-    BigEndian: mb.BigEndian,
+    BigEndian: mb.UseBigEndian(),
   }
 
   return it, nil
 }
 
+// Get returns the bytes for an object at an arbitrary position, and an error if any.
+// Given the compressed nature of the data, Get starts reading from the beginning every time.
+// If you're iterating through the data, use Iterator.  Only use this function for random access.
 func (mb *MemoryBlock) Get(position int) ([]byte, error) {
 	it, err := mb.Iterator()
 	if err != nil {
@@ -73,16 +80,26 @@ func (mb *MemoryBlock) Get(position int) ([]byte, error) {
 	return it.Next()
 }
 
+// Init initializes a block's data.
 func (mb *MemoryBlock) Init(b []byte) error {
   mb.Bytes = b
 	return nil
 }
 
+// Remove clears the Bytes array.
 func (mb *MemoryBlock) Remove() error {
 	mb.Bytes = make([]byte, 0)
 	return nil
 }
 
+// NewMemoryBlock returns a new MemoryBlock.
+// Algorithm can be snappy, gzip, or none.
+// If bigEndian is true, then encodes numbers using a big-endian byte order, else encodes using littl-endian byte order.
 func NewMemoryBlock(algorithm string, bigEndian bool) *MemoryBlock {
-  return &MemoryBlock{Algorithm: algorithm, BigEndian: bigEndian}
+  return &MemoryBlock{
+		AbstractBlock: AbstractBlock{
+				Algorithm: algorithm,
+				BigEndian: bigEndian,
+			},
+		}
 }
